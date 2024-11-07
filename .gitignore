@@ -25,6 +25,9 @@ venv/
 ENV/
 env/
 
+# Model Folder
+paligemma-3b-pt-224/
+
 # IDE
 .idea/
 .vscode/

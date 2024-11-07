@@ -164,7 +164,7 @@ def main(
 
 if __name__ == "__main__":
     main(
-        model_path="./",
+        model_path="paligemma-3b-pt-224/",
         prompt="this building is ",
         image_file_path="test_images/1.jpg",
         max_tokens_to_generate=100,
