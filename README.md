@@ -1,6 +1,6 @@
-# Vision Language Model From Scratch
+# Multi-Modal (Vision) Language Model From Scratch
 
-A implementation of a vision-language model using PaLI-GEMMA 3B.
+A implementation of a multi-modal vision-language model using PaLI-GEMMA 3B.
 
 ## Learning Path
 To get the most out of this repository, follow these steps:
@@ -42,7 +42,7 @@ huggingface-cli login
 4. Install Git LFS and download the model:
 ```bash
 git lfs install
-git clone https://huggingface.co/sahil280114/paligemma-3b-pt-224
+git clone https://huggingface.co/google/paligemma-3b-pt-224
 ```
 
 5. Run inference:
