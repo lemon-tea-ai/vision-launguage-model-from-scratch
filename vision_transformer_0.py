@@ -44,38 +44,22 @@ class VisionEmbeddings(nn.Module):
     """Converts input images into patch embeddings and adds positional embeddings"""
     
     def __init__(self, config: VisionConfig):
-        super().__init__()
-        self.config = config
-        self.embed_dim = config.hidden_size
-        self.image_size = config.image_size
-        self.patch_size = config.patch_size
-
-        # Conv2d layer that splits image into patches and projects them to embedding dimension
-        # For example: 224x224 image with 16x16 patches -> 14x14=196 patches
-        self.patch_embedding = nn.Conv2d(
-            in_channels=config.num_channels,
-            out_channels=self.embed_dim,
-            kernel_size=self.patch_size,
-            stride=self.patch_size,
-            padding="valid", # This indicates no padding is added
-        )
-
-        # Calculate total number of patches (e.g., 196 for 224x224 image with 16x16 patches)
-        self.num_patches = (self.image_size // self.patch_size) ** 2
-        self.num_positions = self.num_patches
+        """Initialize the vision embeddings module.
         
-        # Create learnable position embeddings for each patch
-        self.position_embedding = nn.Embedding(self.num_positions, self.embed_dim)
-        
-        # Create fixed position IDs tensor [0, 1, 2, ..., num_patches-1]
-        self.register_buffer(
-            "position_ids",
-            torch.arange(self.num_positions).expand((1, -1)),
-            persistent=False,
-        )
+        Args:
+            config (VisionConfig): Configuration object containing model parameters
+        """
+        pass
 
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
-        # [Batch_Size, Channels, Height, Width] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Convert input images into patch embeddings with positional encoding.
+        
+        Args:
+            pixel_values (torch.FloatTensor): Input images of shape [Batch_Size, Channels, Height, Width]
+            
+        Returns:
+            torch.Tensor: Patch embeddings with positional encoding of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass
 
 
@@ -83,28 +67,27 @@ class Attention(nn.Module):
     """Multi-headed attention mechanism that allows the model to focus on different parts of the input"""
 
     def __init__(self, config):
-        super().__init__()
-        self.config = config
-        self.embed_dim = config.hidden_size
-        self.num_heads = config.num_attention_heads
-        # Split embedding dimension among heads (e.g., 768/12 = 64)
-        self.head_dim = self.embed_dim // self.num_heads
-        # Scaling factor for dot product attention
-        self.scale = self.head_dim**-0.5 # Equivalent to 1 / sqrt(self.head_dim)
-        self.dropout = config.attention_dropout
-
-        # Linear projections for Query, Key, Value
-        self.k_proj = nn.Linear(self.embed_dim, self.embed_dim)
-        self.v_proj = nn.Linear(self.embed_dim, self.embed_dim)
-        self.q_proj = nn.Linear(self.embed_dim, self.embed_dim)
-        # Final output projection
-        self.out_proj = nn.Linear(self.embed_dim, self.embed_dim)
+        """Initialize multi-headed attention module.
+        
+        Args:
+            config: Configuration object containing attention parameters
+        """
+        pass
 
     def forward(
         self,
         hidden_states: torch.Tensor,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Apply multi-headed self-attention to the input.
+        
+        Args:
+            hidden_states (torch.Tensor): Input tensor of shape [Batch_Size, Num_Patches, Embed_Dim]
+            
+        Returns:
+            Tuple[torch.Tensor, Optional[torch.Tensor]]: 
+                - Attention output of shape [Batch_Size, Num_Patches, Embed_Dim]
+                - Attention weights of shape [Batch_Size, Num_Heads, Num_Patches, Num_Patches]
+        """
         pass
 
 
@@ -112,15 +95,22 @@ class MLP(nn.Module):
     """Multi-Layer Perceptron that processes each patch independently"""
     
     def __init__(self, config):
-        super().__init__()
-        self.config = config
-        # First fully connected layer expands dimension
-        self.fc1 = nn.Linear(config.hidden_size, config.intermediate_size)
-        # Second fully connected layer projects back to original dimension
-        self.fc2 = nn.Linear(config.intermediate_size, config.hidden_size)
+        """Initialize MLP module.
+        
+        Args:
+            config: Configuration object containing MLP parameters
+        """
+        pass
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Apply MLP transformation to input features.
+        
+        Args:
+            hidden_states (torch.Tensor): Input tensor of shape [Batch_Size, Num_Patches, Embed_Dim]
+            
+        Returns:
+            torch.Tensor: Transformed features of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass
 
 
@@ -128,23 +118,26 @@ class EncoderLayer(nn.Module):
     """Single transformer layer combining attention and MLP with residual connections"""
     
     def __init__(self, config: VisionConfig):
-        super().__init__()
-        self.embed_dim = config.hidden_size
-        # Multi-head self attention layer
-        self.self_attn = Attention(config)
-        # Layer normalization before attention
-        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
-        # MLP block
-        self.mlp = MLP(config)
-        # Layer normalization before MLP
-        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
+        """Initialize a single transformer encoder layer.
+        
+        Args:
+            config (VisionConfig): Configuration object containing model parameters
+        """
+        pass
 
     # Ignore copy
     def forward(
         self,
         hidden_states: torch.Tensor
     ) -> torch.Tensor:
-        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Process input through self-attention and MLP with residual connections.
+        
+        Args:
+            hidden_states (torch.Tensor): Input tensor of shape [Batch_Size, Num_Patches, Embed_Dim]
+            
+        Returns:
+            torch.Tensor: Processed features of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass
 
 
@@ -152,19 +145,25 @@ class Encoder(nn.Module):
     """Stack of transformer encoder layers"""
     
     def __init__(self, config: VisionConfig):
-        super().__init__()
-        self.config = config
-        # Create list of encoder layers
-        self.layers = nn.ModuleList(
-            [EncoderLayer(config) for _ in range(config.num_hidden_layers)]
-        )
+        """Initialize the transformer encoder with multiple layers.
+        
+        Args:
+            config (VisionConfig): Configuration object containing model parameters
+        """
+        pass
 
-    # Ignore copy
     def forward(
         self,
         inputs_embeds: torch.Tensor
     ) -> torch.Tensor:
-        # [Batch_Size, Num_Patches, Embed_Dim] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Process input through all encoder layers sequentially.
+        
+        Args:
+            inputs_embeds (torch.Tensor): Input embeddings of shape [Batch_Size, Num_Patches, Embed_Dim]
+            
+        Returns:
+            torch.Tensor: Encoded features of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass
 
 
@@ -172,19 +171,22 @@ class VisionTransformer(nn.Module):
     """Main vision transformer model combining embeddings, encoder, and final layer norm"""
     
     def __init__(self, config: VisionConfig):
-        super().__init__()
-        self.config = config
-        embed_dim = config.hidden_size
-
-        # Create embedding layer for converting image patches to embeddings
-        self.embeddings = VisionEmbeddings(config)
-        # Create encoder with multiple transformer layers
-        self.encoder = Encoder(config)
-        # Final layer normalization
-        self.post_layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
+        """Initialize the complete vision transformer model.
+        
+        Args:
+            config (VisionConfig): Configuration object containing model parameters
+        """
+        pass
 
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
-        # [Batch_Size, Channels, Height, Width] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Process images through the complete vision transformer pipeline.
+        
+        Args:
+            pixel_values (torch.Tensor): Input images of shape [Batch_Size, Channels, Height, Width]
+            
+        Returns:
+            torch.Tensor: Final encoded features of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass
 
 
@@ -192,10 +194,20 @@ class VisionModel(nn.Module):
     """Wrapper class for the vision transformer model"""
 
     def __init__(self, config: VisionConfig):
-        super().__init__()
-        self.config = config
-        self.vision_model = VisionTransformer(config)
+        """Initialize the vision model wrapper.
+        
+        Args:
+            config (VisionConfig): Configuration object containing model parameters
+        """
+        pass
 
     def forward(self, pixel_values) -> Tuple:
-        # [Batch_Size, Channels, Height, Width] -> [Batch_Size, Num_Patches, Embed_Dim]
+        """Process images through the vision transformer model.
+        
+        Args:
+            pixel_values (torch.Tensor): Input images of shape [Batch_Size, Channels, Height, Width]
+            
+        Returns:
+            torch.Tensor: Encoded image features of shape [Batch_Size, Num_Patches, Embed_Dim]
+        """
         pass

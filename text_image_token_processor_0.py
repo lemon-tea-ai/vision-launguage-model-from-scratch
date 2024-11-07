@@ -3,9 +3,10 @@ import numpy as np
 from PIL import Image
 import torch
 
-# Standard ImageNet normalization constants
-IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]  # Mean values for each RGB channel
-IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]   # Standard deviation values for each RGB channel
+# Standard normalization values used in many computer vision models
+# These values help center the image data around 0 and scale it appropriately
+IMAGENET_STANDARD_MEAN = [0.5, 0.5, 0.5]  # One value for each RGB channel
+IMAGENET_STANDARD_STD = [0.5, 0.5, 0.5]   # One value for each RGB channel
 
 
 def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_token):
@@ -19,33 +20,106 @@ def add_image_tokens_to_prompt(prefix_prompt, bos_token, image_seq_len, image_to
     return f"{image_token * image_seq_len}{bos_token}{prefix_prompt}\n"
 
 
+def rescale(
+    image: np.ndarray, scale: float, dtype: np.dtype = np.float32
+) -> np.ndarray:
+    """
+    TODO: Rescale the image pixel values by multiplying with a scale factor
+    1. Multiply the image array by the scale factor (typically 1/255 to convert from [0,255] to [0,1])
+    2. Convert the result to the specified dtype (default float32)
+    
+    Reference implementation in text_image_token_processor_1.py:
+    startLine: 23
+    endLine: 28
+    """
+    pass
+
+
+def resize(
+    image: Image,
+    size: Tuple[int, int],
+    resample: Image.Resampling = None,
+    reducing_gap: Optional[int] = None,
+) -> np.ndarray:
+    """
+    TODO: Resize the input PIL Image to the specified dimensions
+    1. Extract height and width from size tuple
+    2. Use PIL's resize method with the specified resampling method
+    3. Return the resized image
+    
+    Reference implementation in text_image_token_processor_1.py:
+    startLine: 31
+    endLine: 41
+    """
+    pass
+
+
+def normalize(
+    image: np.ndarray,
+    mean: Union[float, Iterable[float]],
+    std: Union[float, Iterable[float]],
+) -> np.ndarray:
+    """
+    TODO: Normalize the image using mean and standard deviation
+    1. Convert mean and std to numpy arrays with same dtype as image
+    2. Subtract mean from image
+    3. Divide by standard deviation
+    
+    Reference implementation in text_image_token_processor_1.py:
+    startLine: 44
+    endLine: 52
+    """
+    pass
+
+
 def process_images(
     images: List[Image.Image],
-    size: Tuple[str, int] = None,
+    size: Dict[str, int] = None,
     resample: Image.Resampling = None,
     rescale_factor: float = None,
     image_mean: Optional[Union[float, List[float]]] = None,
     image_std: Optional[Union[float, List[float]]] = None,
 ) -> List[np.ndarray]:
     """
-    Processes a batch of images through several steps:
-    1. Resizes images to target dimensions
-    2. Converts PIL images to numpy arrays
-    3. Rescales pixel values (typically to [0,1] range)
-    4. Normalizes using mean and standard deviation
-    5. Rearranges dimensions to channel-first format (CHW)
+    TODO: Process a list of images through multiple preprocessing steps
+    1. Extract height and width from size dictionary
+    2. For each image:
+        a. Resize to specified dimensions
+        b. Convert to numpy array
+        c. Rescale pixel values (typically from [0,255] to [0,1])
+        d. Normalize using mean and standard deviation
+        e. Rearrange dimensions from [H,W,C] to [C,H,W] format
+    
+    Reference implementation in text_image_token_processor_1.py:
+    startLine: 55
+    endLine: 84
     """
     pass
 
+
 class PaliGemmaProcessor:
     """
-    Main processor class that handles both image and text processing for PaliGemma model.
-    Combines image preprocessing with text tokenization in a single pipeline.
+    TODO: Implement the processor class that handles both image and text processing
+    
+    Reference implementation in text_image_token_processor_1.py:
+    startLine: 87
+    endLine: 175
     """
-
     IMAGE_TOKEN = "<image>"
 
     def __init__(self, tokenizer, num_image_tokens: int, image_size: int):
+        """
+        TODO: Initialize the processor
+        1. Call super().__init__()
+        2. Store image sequence length and image size
+        3. Add special tokens to tokenizer:
+            - IMAGE_TOKEN
+            - Location tokens (<loc####>)
+            - Segmentation tokens (<seg###>)
+        4. Get image token ID
+        5. Configure tokenizer settings (disable automatic special tokens)
+        6. Store tokenizer instance
+        """
         pass
 
     def __call__(
@@ -56,10 +130,19 @@ class PaliGemmaProcessor:
         truncation: bool = True,
     ) -> dict:
         """
-        Main processing method that:
-        1. Processes images into tensor format
-        2. Prepends image tokens to text prompts
-        3. Tokenizes the modified prompts
-        4. Returns combined image and text tensors
+        TODO: Process both images and text
+        1. Validate input (should be one image-text pair)
+        2. Process images:
+            - Resize, rescale, normalize
+            - Convert to tensor format
+        3. Prepare text:
+            - Add image tokens and special tokens
+            - Convert to token IDs
+        4. Combine everything into a single dictionary
+        
+        The final output should contain:
+        - pixel_values: Processed image tensor
+        - input_ids: Token IDs
+        - attention_mask: Mask for padding
         """
         pass

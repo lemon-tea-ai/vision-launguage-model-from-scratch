@@ -6,6 +6,15 @@ import math
 from vision_transformer_1 import VisionConfig, VisionModel
 
 class KVCache():
+    """
+    KVCache stores previous key and value states to avoid recomputing them during text generation.
+    This makes generation more efficient by reusing previous attention computations.
+    Think of it like the model's "memory" of what it has processed so far.
+    
+    During text generation, instead of recomputing attention for all previous tokens,
+    we can reuse the cached key/value states from previous forward passes.
+    This significantly speeds up the generation process.
+    """
 
     def __init__(self) -> None:
         self.key_cache: List[torch.Tensor] = []
@@ -38,6 +47,11 @@ class KVCache():
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
 class GemmaConfig():
+    """
+    Configuration class that stores all the hyperparameters needed for the Gemma model.
+    This includes things like model size (hidden_size), number of layers, attention heads, etc.
+    Think of it as a recipe card that defines how big and complex the model should be.
+    """
 
     def __init__(
         self,
@@ -106,6 +120,11 @@ class PaliGemmaConfig():
 
 
 class GemmaRMSNorm(nn.Module):
+    """
+    A special type of normalization layer used in Gemma (similar to LayerNorm but slightly different).
+    Normalization helps keep the values in a reasonable range as they flow through the network.
+    Without it, values could explode or vanish, making training impossible.
+    """
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
@@ -122,6 +141,12 @@ class GemmaRMSNorm(nn.Module):
         return output.type_as(x)
 
 class GemmaRotaryEmbedding(nn.Module):
+    """
+    Implements Rotary Position Embedding (RoPE) which helps the model understand token positions.
+    Instead of adding position information directly, it rotates the token embeddings in a way that
+    naturally represents their positions. This is like giving each token a unique "angle" based on
+    where it appears in the sequence.
+    """
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()
 
@@ -173,6 +198,12 @@ def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
 
 
 class GemmaMLP(nn.Module):
+    """
+    Multi-Layer Perceptron - a simple feed-forward neural network.
+    After attention gathers information from other tokens, the MLP processes
+    this information further. Think of it as the "thinking" step after the
+    "gathering information" step of attention.
+    """
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -199,7 +230,24 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 class GemmaAttention(nn.Module):
-
+    """
+    The attention mechanism - the heart of the transformer architecture.
+    It lets each token "pay attention" to other tokens when processing the sequence.
+    
+    For example, in "The cat sat on the mat", when processing "sat",
+    attention helps the model look at "cat" to know WHO sat, and "mat" to know WHERE.
+    
+    The attention mechanism works in three steps:
+    1. Create queries (what to look for), keys (what to match against), and values (what information to retrieve)
+    2. Compute attention scores between queries and keys
+    3. Use these scores to weight the values and create the final output
+    
+    This implementation also includes:
+    - Multi-head attention (parallel attention computations)
+    - Grouped-query attention (sharing key/value heads across query heads)
+    - Rotary position embeddings (RoPE) for handling token positions
+    - KV-caching for efficient text generation
+    """
     def __init__(self, config: GemmaConfig, layer_idx: Optional[int] = None):
         super().__init__()
         self.config = config
@@ -253,7 +301,6 @@ class GemmaAttention(nn.Module):
         cos, sin = self.rotary_emb(value_states, position_ids, seq_len=None)
         # [Batch_Size, Num_Heads_Q, Seq_Len, Head_Dim], [Batch_Size, Num_Heads_KV, Seq_Len, Head_Dim]
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-
         if kv_cache is not None:
             key_states, value_states = kv_cache.update(key_states, value_states, self.layer_idx)
 
@@ -289,7 +336,16 @@ class GemmaAttention(nn.Module):
         return attn_output, attn_weights
 
 class GemmaDecoderLayer(nn.Module):
-
+    """
+    One complete layer of the transformer decoder.
+    Each layer does these steps:
+    1. Self-attention: Look at other tokens to gather context
+    2. Add & normalize: Add the original input back and normalize
+    3. MLP: Process the gathered information
+    4. Add & normalize again
+    
+    The model stacks many of these layers to build deep understanding.
+    """
     def __init__(self, config: GemmaConfig, layer_idx: int):
         super().__init__()
         self.hidden_size = config.hidden_size
@@ -435,6 +491,27 @@ class PaliGemmaMultiModalProjector(nn.Module):
         return hidden_states
 
 class PaliGemmaForConditionalGeneration(nn.Module):
+    """
+    The complete multimodal model that can process both images and text.
+    It combines:
+    1. A vision model to understand images
+    2. A language model (Gemma) to understand and generate text
+    3. A projector to connect image features to text features
+    
+    This allows the model to generate text based on both image and text inputs.
+    
+    The model works in several steps:
+    1. Process images through the vision tower to extract visual features
+    2. Project these visual features to match the text embedding space
+    3. Combine image and text embeddings into a single sequence
+    4. Process the combined sequence through the language model
+    5. Generate text outputs based on both visual and textual context
+    
+    This architecture enables tasks like:
+    - Image captioning
+    - Visual question answering
+    - Image-guided text generation
+    """
     def __init__(self, config: PaliGemmaConfig):
         super().__init__()
         self.config = config
@@ -453,6 +530,16 @@ class PaliGemmaForConditionalGeneration(nn.Module):
     def _merge_input_ids_with_image_features(
         self, image_features: torch.Tensor, inputs_embeds: torch.Tensor, input_ids: torch.Tensor, attention_mask: torch.Tensor, kv_cache: Optional[KVCache] = None
     ):
+        """
+        This crucial method combines image and text features into one sequence.
+        It's like creating a single story that weaves together what the model
+        sees in the image and what it reads in the text.
+        
+        For example, if you have an image of a dog and text "The dog is",
+        this method helps the model use both pieces of information to maybe
+        complete the sentence with "playing in the park" based on what it
+        sees in the image.
+        """
         _, _, embed_dim = image_features.shape
         batch_size, sequence_length = input_ids.shape
         dtype, device = inputs_embeds.dtype, inputs_embeds.device
@@ -501,7 +588,6 @@ class PaliGemmaForConditionalGeneration(nn.Module):
             causal_mask = torch.full(
                 (batch_size, q_len, kv_len), fill_value=0, dtype=dtype, device=device
             )
-
         # Add the head dimension
         # [Batch_Size, Q_Len, KV_Len] -> [Batch_Size, Num_Heads_Q, Q_Len, KV_Len]
         causal_mask = causal_mask.unsqueeze(1)
