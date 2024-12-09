@@ -49,7 +49,17 @@ class VisionEmbeddings(nn.Module):
         Args:
             config (VisionConfig): Configuration object containing model parameters
         """
-        pass
+        super().__init__()
+        # TODO:
+        # 1. Calculate num_patches = (image_size // patch_size) ** 2
+        # 2. Create patch_embeddings as nn.Conv2d to convert image patches to embeddings
+        #    - in_channels = num_channels
+        #    - out_channels = hidden_size
+        #    - kernel_size = patch_size
+        #    - stride = patch_size
+        # 3. Create position_embeddings as nn.Parameter of shape (1, num_patches, hidden_size)
+        # 4. Create layer_norm as nn.LayerNorm with hidden_size and eps
+        # 5. Create dropout layer with config.attention_dropout
 
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
         """Convert input images into patch embeddings with positional encoding.
@@ -60,7 +70,12 @@ class VisionEmbeddings(nn.Module):
         Returns:
             torch.Tensor: Patch embeddings with positional encoding of shape [Batch_Size, Num_Patches, Embed_Dim]
         """
-        pass
+        # TODO:
+        # 1. Apply patch_embeddings to convert image to patches
+        # 2. Reshape output to (batch_size, num_patches, hidden_size)
+        # 3. Add position_embeddings
+        # 4. Apply layer_norm and dropout
+        # 5. Return final embeddings
 
 
 class Attention(nn.Module):
@@ -72,7 +87,13 @@ class Attention(nn.Module):
         Args:
             config: Configuration object containing attention parameters
         """
-        pass
+        super().__init__()
+        # TODO:
+        # 1. Set head_size = hidden_size // num_attention_heads
+        # 2. Create query, key, value projections as nn.Linear layers
+        # 3. Create attention_dropout layer
+        # 4. Create output projection as nn.Linear
+        # 5. Store num_attention_heads and head_size
 
     def forward(
         self,
@@ -88,7 +109,15 @@ class Attention(nn.Module):
                 - Attention output of shape [Batch_Size, Num_Patches, Embed_Dim]
                 - Attention weights of shape [Batch_Size, Num_Heads, Num_Patches, Num_Patches]
         """
-        pass
+        # TODO:
+        # 1. Project input to query, key, value
+        # 2. Reshape Q,K,V to split heads: (batch, num_heads, seq_len, head_size)
+        # 3. Calculate attention scores = Q @ K.transpose(-2, -1)
+        # 4. Scale scores by 1/sqrt(head_size)
+        # 5. Apply softmax and dropout
+        # 6. Apply attention to values
+        # 7. Reshape and project output
+        # 8. Return output and attention weights
 
 
 class MLP(nn.Module):
@@ -100,7 +129,12 @@ class MLP(nn.Module):
         Args:
             config: Configuration object containing MLP parameters
         """
-        pass
+        super().__init__()
+        # TODO:
+        # 1. Create fc1 as nn.Linear(hidden_size, intermediate_size)
+        # 2. Create activation as nn.GELU()
+        # 3. Create fc2 as nn.Linear(intermediate_size, hidden_size)
+        # 4. Create dropout layer
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """Apply MLP transformation to input features.
@@ -111,7 +145,9 @@ class MLP(nn.Module):
         Returns:
             torch.Tensor: Transformed features of shape [Batch_Size, Num_Patches, Embed_Dim]
         """
-        pass
+        # TODO:
+        # 1. Apply fc1, activation, dropout, fc2 in sequence
+        # 2. Return transformed features
 
 
 class EncoderLayer(nn.Module):
