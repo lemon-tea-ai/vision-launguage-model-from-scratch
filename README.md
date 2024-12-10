@@ -22,6 +22,32 @@ To get the most out of this repository, follow these steps:
      - `decoder_0.py`
    - These files contain TODO comments to guide your implementation
 
+4. **Study Components in Detail**
+   Follow this order to understand the data flow:
+
+   a. **Text & Image Processing**
+   - Start with `text_image_token_processor_1.py` to understand input preparation
+   - Learn how tokenization and image preprocessing work together
+
+   b. **Vision Pipeline**
+   - Study `VisionEmbeddings` for image patch processing
+   - Examine `VisionTransformer` for feature extraction
+
+   c. **Projection & Merging**
+   - Understand `PaliGemmaMultiModalProjector` for feature alignment
+   - Study `_merge_input_ids_with_image_features` for modality combination
+
+   d. **Language Model**
+   - Examine `GemmaModel` architecture
+   - Focus on attention mechanism in `GemmaAttention`
+
+5. **Key Implementation Details**
+   Each component serves a specific purpose:
+   - Vision Transformer: Converts images into semantic features
+   - Text Processor: Handles tokenization and special token insertion
+   - Projector: Aligns vision and text feature spaces
+   - Decoder: Combines and processes multimodal information
+
 ## Setup
 
 1. Clone the repository:
