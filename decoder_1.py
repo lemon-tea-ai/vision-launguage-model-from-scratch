@@ -4,6 +4,8 @@ from typing import Optional, Tuple, List
 from torch.nn import CrossEntropyLoss
 import math
 from vision_transformer_1 import VisionConfig, VisionModel
+import os
+import json
 
 class KVCache():
     """
@@ -636,3 +638,32 @@ class PaliGemmaForConditionalGeneration(nn.Module):
         )
 
         return outputs
+
+    def save_pretrained(self, save_directory: str):
+        """
+        Save the model weights and configuration to a directory.
+        
+        Args:
+            save_directory (str): Directory to save the model to
+        """
+        # Create the directory if it doesn't exist
+        os.makedirs(save_directory, exist_ok=True)
+        
+        # Save the model configuration
+        config_dict = {
+            'vision_config': self.config.vision_config.__dict__,
+            'text_config': self.config.text_config.__dict__,
+            'ignore_index': self.config.ignore_index,
+            'image_token_index': self.config.image_token_index,
+            'vocab_size': self.config.vocab_size,
+            'projection_dim': self.config.projection_dim,
+            'hidden_size': self.config.hidden_size,
+            'pad_token_id': self.config.pad_token_id
+        }
+        
+        with open(os.path.join(save_directory, 'config.json'), 'w') as f:
+            json.dump(config_dict, f)
+        
+        # Save the model weights
+        model_state = self.state_dict()
+        torch.save(model_state, os.path.join(save_directory, 'pytorch_model.bin'))

@@ -6,7 +6,6 @@ from typing import List, Dict, Optional
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from tqdm import tqdm
-import wandb  # For experiment tracking
 from torch.cuda.amp import autocast, GradScaler  # For mixed precision training
 from datasets import load_dataset
 import requests
@@ -31,8 +30,8 @@ class MultiModalDataset(Dataset):
         max_length: int = 512,
         max_samples: int = None  # Limit samples for quick testing
     ):
-        # Load Flickr8k dataset
-        self.dataset = load_dataset("nlphuji/flickr8k", split=split)
+        # Load the official Food101 dataset
+        self.dataset = load_dataset("food101", split=split)
         if max_samples:
             self.dataset = self.dataset.select(range(max_samples))
         
@@ -44,23 +43,22 @@ class MultiModalDataset(Dataset):
     
     def __getitem__(self, idx):
         item = self.dataset[idx]
-        image = Image.open(BytesIO(requests.get(item['image_url']).content)).convert('RGB')
-        text = item['caption']
+        # Food101 provides images directly as PIL Images
+        image = item['image']  # No need for BytesIO conversion
+        text = f"This is a picture of {item['label']}"
         
         # Process inputs
         inputs = self.processor(
             text=[text],
             images=[image],
             padding="max_length",
-            truncation=True,
-            max_length=self.max_length
+            truncation=True
         )
         
         return {
             'input_ids': inputs['input_ids'].squeeze(0),
             'attention_mask': inputs['attention_mask'].squeeze(0),
-            'pixel_values': inputs['pixel_values'].squeeze(0),
-            'labels': inputs['input_ids'].squeeze(0)
+            'pixel_values': inputs['pixel_values'].squeeze(0)
         }
 
 class Trainer:
@@ -74,7 +72,6 @@ class Trainer:
         gradient_accumulation_steps: int = 1,
         max_grad_norm: float = 1.0,
         use_amp: bool = True,
-        log_to_wandb: bool = True
     ):
         self.model = model
         self.train_dataloader = train_dataloader
@@ -84,8 +81,7 @@ class Trainer:
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.max_grad_norm = max_grad_norm
         self.use_amp = use_amp
-        self.log_to_wandb = log_to_wandb
-        
+    
         # Initialize mixed precision training
         self.scaler = GradScaler() if use_amp else None
     
@@ -106,10 +102,17 @@ class Trainer:
                 outputs = self.model(
                     input_ids=batch["input_ids"],
                     pixel_values=batch["pixel_values"],
-                    attention_mask=batch["attention_mask"],
-                    labels=batch["labels"]  # Model will automatically shift labels
+                    attention_mask=batch["attention_mask"]
                 )
-                loss = outputs.loss / self.gradient_accumulation_steps
+                # The model returns logits directly as the first element of the tuple
+                shift_logits = outputs["logits"][:, :-1, :].contiguous()
+                shift_labels = batch["input_ids"][..., 1:].contiguous()
+                loss = torch.nn.functional.cross_entropy(
+                    shift_logits.view(-1, shift_logits.size(-1)),
+                    shift_labels.view(-1),
+                    ignore_index=-100
+                )
+                loss = loss / self.gradient_accumulation_steps
             
             # Backward pass
             if self.use_amp:
@@ -141,15 +144,6 @@ class Trainer:
             total_loss += loss.item()
             avg_loss = total_loss / (step + 1)
             pbar.set_postfix({'loss': avg_loss})
-            
-            # Log to wandb
-            if self.log_to_wandb and step % 100 == 0:
-                wandb.log({
-                    'train_loss': loss.item(),
-                    'train_avg_loss': avg_loss,
-                    'epoch': epoch,
-                    'step': step
-                })
         
         return total_loss / len(self.train_dataloader)
     
@@ -168,19 +162,24 @@ class Trainer:
             outputs = self.model(
                 input_ids=batch["input_ids"],
                 pixel_values=batch["pixel_values"],
-                attention_mask=batch["attention_mask"],
-                labels=batch["labels"]
+                attention_mask=batch["attention_mask"]
             )
             
-            total_loss += outputs.loss.item()
+            # Calculate loss the same way as in training
+            shift_logits = outputs["logits"][:, :-1, :].contiguous()
+            shift_labels = batch["input_ids"][..., 1:].contiguous()
+            loss = torch.nn.functional.cross_entropy(
+                shift_logits.view(-1, shift_logits.size(-1)),
+                shift_labels.view(-1),
+                ignore_index=-100
+            )
+            
+            total_loss += loss.item()
         
         avg_loss = total_loss / len(self.val_dataloader)
         return avg_loss
 
 def main():
-    # Initialize wandb
-    wandb.init(project="paligemma-training")
-    
     # Training configuration
     config = {
         'model_path': "paligemma-3b-pt-224/",
@@ -192,7 +191,7 @@ def main():
         'gradient_accumulation_steps': 4,
         'learning_rate': 5e-5,
         'weight_decay': 0.01,
-        'num_epochs': 3,
+        'num_epochs': 1,
         'use_amp': True,
         'max_grad_norm': 1.0,
     }
@@ -210,20 +209,20 @@ def main():
     train_dataset = MultiModalDataset(
         processor=processor,
         split="train",
-        max_samples=100  # Start with small number for testing
+        max_samples=10  # Start with small number for testing
     )
     
     val_dataset = MultiModalDataset(
         processor=processor,
         split="validation",
-        max_samples=50  # Start with small number for testing
+        max_samples=1  # Start with small number for testing
     )
     
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
         shuffle=True,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True
     )
     
@@ -231,7 +230,7 @@ def main():
         val_dataset,
         batch_size=config['batch_size'],
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True
     ) if val_dataset else None
     
@@ -270,21 +269,10 @@ def main():
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 model.save_pretrained(os.path.join(config['output_dir'], 'best_model'))
-                tokenizer.save_pretrained(os.path.join(config['output_dir'], 'best_model'))
         
         # Save checkpoint
         checkpoint_dir = os.path.join(config['output_dir'], f'checkpoint-{epoch}')
         model.save_pretrained(checkpoint_dir)
-        tokenizer.save_pretrained(checkpoint_dir)
-        
-        # Log to wandb
-        wandb.log({
-            'epoch': epoch,
-            'train_loss': train_loss,
-            'val_loss': val_loss if val_dataloader else None
-        })
-    
-    wandb.finish()
 
 if __name__ == "__main__":
     main() 
